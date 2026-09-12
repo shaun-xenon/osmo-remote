@@ -1,0 +1,28 @@
+[project]
+name = "osmo-sidecar"
+version = "0.1.0"
+description = "BLE sidecar for Osmo Mobile remote control on Linux"
+requires-python = ">=3.12"
+dependencies = [
+    "bleak>=0.22,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+osmo-sidecar = "osmo_sidecar.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["osmo_sidecar*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

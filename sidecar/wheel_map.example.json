@@ -1,0 +1,5 @@
+{
+  "note": "Fill zoom_in / zoom_out with DUML hex captured by: python -m osmo_sidecar sniff <address>",
+  "zoom_in": "",
+  "zoom_out": ""
+}

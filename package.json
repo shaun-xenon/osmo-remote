@@ -1,0 +1,26 @@
+{
+  "name": "osmo-remote",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kubuntu desktop remote for DJI Osmo Mobile 7P (BLE joystick)",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && env ELECTRON_START_URL=http://127.0.0.1:5173 electron . --no-sandbox\"",
+    "build": "vite build",
+    "start": "npm run build && electron . --no-sandbox",
+    "sidecar:setup": "python3 -m venv sidecar/.venv && sidecar/.venv/bin/pip install -U pip && sidecar/.venv/bin/pip install -e './sidecar[dev]'",
+    "sidecar:test": "sidecar/.venv/bin/pytest -q sidecar/tests",
+    "test": "npm run sidecar:test"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^35.1.5",
+    "vite": "^6.2.5",
+    "wait-on": "^8.0.3"
+  }
+}
