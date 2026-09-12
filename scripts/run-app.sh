@@ -28,7 +28,6 @@ if [[ -f "${HOME}/.asdf/asdf.sh" ]]; then
   # shellcheck disable=SC1091
   source "${HOME}/.asdf/asdf.sh"
 fi
-PATH="${HOME}/.local/bin:${PATH}"
 set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
