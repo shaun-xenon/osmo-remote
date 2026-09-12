@@ -2,7 +2,7 @@
 Type=Application
 Name=Osmo Remote
 Comment=Remote joystick for DJI Osmo Mobile 7P
-Exec=@ROOT@/scripts/run-app.sh
+Exec=bash -lc "exec '@ROOT@/scripts/run-app.sh'"
 Icon=@ROOT@/packaging/osmo-remote.svg
 Path=@ROOT@
 Terminal=false
