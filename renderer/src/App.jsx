@@ -34,6 +34,15 @@ function padAxes() {
   return { x, y, connected: true, id: pad.id };
 }
 
+function samePad(left, right) {
+  return (
+    left.connected === right.connected &&
+    left.id === right.id &&
+    left.x === right.x &&
+    left.y === right.y
+  );
+}
+
 function applyDeadzone(value) {
   return Math.abs(value) < DEADZONE ? 0 : value;
 }
@@ -58,9 +67,11 @@ export function App() {
   const [logs, setLogs] = useState([]);
   const [busy, setBusy] = useState(false);
   const [sniffing, setSniffing] = useState(false);
+  const [overlay, setOverlay] = useState(false);
+  const [onTop, setOnTop] = useState(false);
   const moving = useRef(false);
   const axesRef = useRef({ x: 0, y: 0 });
-  const lastSend = useRef(0);
+  const sending = useRef(false);
 
   const pushLog = useCallback((message) => {
     setLogs((current) => [`${new Date().toLocaleTimeString()} ${message}`, ...current].slice(0, 80));
@@ -109,33 +120,33 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    let frame = 0;
-    const tick = () => {
-      setPad(padAxes());
+    const id = window.setInterval(() => {
+      const next = padAxes();
+      setPad((current) => (samePad(current, next) ? current : next));
       const current = axesRef.current;
       const mag = Math.hypot(current.x, current.y);
-      const now = performance.now();
       if (connected && mag > DEADZONE) {
-        if (now - lastSend.current < 50) {
-          frame = window.requestAnimationFrame(tick);
+        if (sending.current) {
           return;
         }
-        lastSend.current = now;
         moving.current = true;
+        sending.current = true;
         request("joystick", {
           yaw: current.x,
           pitch: current.y,
           max_speed: Math.round(80 + speed * 1720),
           method,
-        }).catch((error) => pushLog(error.message));
+        })
+          .catch((error) => pushLog(error.message))
+          .finally(() => {
+            sending.current = false;
+          });
       } else if (moving.current) {
         moving.current = false;
         request("stop").catch((error) => pushLog(error.message));
       }
-      frame = window.requestAnimationFrame(tick);
-    };
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
+    }, 50);
+    return () => window.clearInterval(id);
   }, [connected, method, pushLog, speed]);
 
   async function scan() {
@@ -278,17 +289,41 @@ export function App() {
     }
   }
 
+  async function toggleOverlay() {
+    const next = !overlay;
+    setOverlay(next);
+    if (next && !onTop) {
+      setOnTop(true);
+      await window.osmo?.setAlwaysOnTop?.(true);
+    }
+    await window.osmo?.setCompact?.(next);
+  }
+
+  async function toggleOnTop() {
+    const next = !onTop;
+    setOnTop(next);
+    await window.osmo?.setAlwaysOnTop?.(next);
+  }
+
   const batteryLabel =
     status.battery == null ? "Battery n/a" : `Battery ${status.battery}%${status.charging ? " charging" : ""}`;
 
   return (
-    <div className="app">
+    <div className={`app ${overlay ? "is-overlay" : ""}`}>
       <header className="top">
         <div>
           <h1>Osmo Remote</h1>
-          <p>Osmo Mobile 7P over Bluetooth. Close DJI Mimo. Do not pair in KDE’s Bluetooth applet.</p>
+          <p>Close DJI Mimo. Disconnect the gimbal in KDE Bluetooth before Connect.</p>
         </div>
-        <div className={`pill ${connected ? "ok" : ""}`}>{connected ? "Connected" : "Disconnected"}</div>
+        <div className="top-actions">
+          <button type="button" className={overlay ? "is-active" : ""} onClick={toggleOverlay}>
+            Overlay
+          </button>
+          <button type="button" className={onTop ? "is-active" : ""} onClick={toggleOnTop}>
+            On top
+          </button>
+          <div className={`pill ${connected ? "ok" : ""}`}>{connected ? "Connected" : "Disconnected"}</div>
+        </div>
       </header>
 
       <section className="connect-row">
@@ -356,7 +391,7 @@ export function App() {
               FPV
             </button>
           </div>
-          <div className="actions">
+          <div className="actions extras">
             <button type="button" disabled={!connected} onClick={pairProbe}>
               Pairing poke
             </button>

@@ -10,7 +10,8 @@
     "start": "npm run build && electron . --no-sandbox",
     "sidecar:setup": "python3 -m venv sidecar/.venv && sidecar/.venv/bin/pip install -U pip && sidecar/.venv/bin/pip install -e './sidecar[dev]'",
     "sidecar:test": "sidecar/.venv/bin/pytest -q sidecar/tests",
-    "test": "npm run sidecar:test"
+    "test": "npm run sidecar:test",
+    "desktop": "bash scripts/install-desktop.sh"
   },
   "dependencies": {
     "react": "^18.3.1",

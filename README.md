@@ -10,6 +10,7 @@ DJI does not ship an SDK for this product. The app talks the reverse-engineered 
 
 - Scan and connect over BLE (GATT `fff0` / `fff4` / `fff5`)
 - On-screen analog stick, WASD/arrows, USB gamepad
+- Compact **Overlay** window and **On top** for use beside OBS
 - Speed slider (slow crawl to fast slew)
 - Recenter, follow / lock / FPV mode packets
 - SPEED commands (proven on OM7P) with PWM joystick as a fallback
@@ -32,7 +33,7 @@ DJI does not ship an SDK for this product. The app talks the reverse-engineered 
 ## Setup
 
 ```bash
-git clone <this-repo> osmo-remote
+git clone https://github.com/shaun-xenon/osmo-remote.git
 cd osmo-remote
 npm run sidecar:setup
 npm install
@@ -44,10 +45,10 @@ If Bluetooth is soft-blocked:
 rfkill unblock bluetooth
 ```
 
-Optional KDE launcher:
+Optional KDE launcher (writes a `.desktop` file for *this* checkout):
 
 ```bash
-cp packaging/osmo-remote.desktop ~/.local/share/applications/
+npm run desktop
 ```
 
 ## Run
@@ -68,8 +69,21 @@ npm test
 2. In **KDE Bluetooth**, disconnect or unpair it. Plasma will steal the GATT session if it auto-connects; Scan will still see the device and Connect will fail.
 3. Power the gimbal. Reset BLE if needed (switch + shutter + trigger).
 4. In the app: **Scan** → **Connect** → drag the stick.
+5. For OBS or a busy desktop, click **Overlay** (and **On top**) so the stick stays on the picture.
 
 The phone can stay on the clamp and record with the native camera. It must not own Bluetooth.
+
+### Seeing the picture
+
+This app only moves the gimbal. It does not carry video. Pick a viewer that matches the job:
+
+| Setup | Picture on the laptop | Notes |
+|------|------------------------|-------|
+| Android **Professional Camera** (or the stock camera) | No | Best files on the phone. You are flying blind unless you can see the panel. |
+| **scrcpy** | Yes, usually the snappiest | USB preferred. Good “see what I am framing” monitor. Record on the phone, not via the desktop encode. |
+| **DroidCam + OBS** | Yes | Fine for monitoring. Recording in OBS adds encode latency. That is DroidCam/OBS/CPU, not the BLE stick. |
+
+OBS dropped frames and mushy recording on a loaded machine (Chrome, torrents, Docker, Discord, other Electron apps) are expected. Pause the extras if you need a clean OBS encode. The gimbal stick is cheap; the video pipeline is not.
 
 If Connect fails after a previous session:
 
@@ -104,8 +118,8 @@ Copy confirmed `zoom_in` / `zoom_out` hex into `sidecar/wheel_map.json` (see `si
 electron/     main process, spawns the sidecar
 renderer/     stick / wheel UI (Vite + React)
 sidecar/      Bleak driver, DUML codec, JSON-lines server
-packaging/    .desktop launcher + icon
-scripts/      BLE bring-up helper
+packaging/    icon + desktop template
+scripts/      BLE bring-up, app launcher, KDE install
 ```
 
 ## Protocol
