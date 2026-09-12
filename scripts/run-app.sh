@@ -11,9 +11,24 @@ if [[ -s "${HOME}/.nvm/nvm.sh" ]]; then
   # shellcheck disable=SC1091
   source "${HOME}/.nvm/nvm.sh"
 fi
-if command -v fnm >/dev/null 2>&1; then
+# fnm's binary is usually not on the desktop PATH.
+if [[ -z "${FNM_DIR:-}" ]]; then
+  if [[ -x "${HOME}/.local/share/fnm/fnm" ]]; then
+    FNM_DIR="${HOME}/.local/share/fnm"
+  elif [[ -x "${HOME}/.fnm/fnm" ]]; then
+    FNM_DIR="${HOME}/.fnm"
+  fi
+fi
+if [[ -n "${FNM_DIR:-}" && -x "${FNM_DIR}/fnm" ]]; then
+  eval "$("${FNM_DIR}/fnm" env)"
+elif command -v fnm >/dev/null 2>&1; then
   eval "$(fnm env)"
 fi
+if [[ -f "${HOME}/.asdf/asdf.sh" ]]; then
+  # shellcheck disable=SC1091
+  source "${HOME}/.asdf/asdf.sh"
+fi
+PATH="${HOME}/.local/bin:${PATH}"
 set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
