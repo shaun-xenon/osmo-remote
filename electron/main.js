@@ -119,8 +119,11 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false,
     },
   });
+  mainWindow.setMenuBarVisibility(false);
+
 
   const startUrl = process.env.ELECTRON_START_URL;
   if (startUrl) {
@@ -131,6 +134,28 @@ function createWindow() {
 }
 
 ipcMain.handle("sidecar:request", async (_event, payload) => sendToSidecar(payload));
+
+ipcMain.handle("window:alwaysOnTop", (_event, enabled) => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return false;
+  }
+  mainWindow.setAlwaysOnTop(Boolean(enabled), "floating");
+  return mainWindow.isAlwaysOnTop();
+});
+
+ipcMain.handle("window:compact", (_event, enabled) => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return false;
+  }
+  if (enabled) {
+    mainWindow.setMinimumSize(320, 460);
+    mainWindow.setSize(380, 620);
+  } else {
+    mainWindow.setMinimumSize(640, 520);
+    mainWindow.setSize(980, 760);
+  }
+  return Boolean(enabled);
+});
 
 app.whenReady().then(() => {
   startSidecar();

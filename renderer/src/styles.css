@@ -88,6 +88,53 @@ h1 {
   background: #14532d;
 }
 
+.top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.top-actions button {
+  background: #334155;
+}
+
+.top-actions button.is-active {
+  background: #1d4ed8;
+}
+
+.app.is-overlay {
+  padding: 12px;
+  gap: 10px;
+}
+
+.app.is-overlay h1 {
+  font-size: 18px;
+}
+
+.app.is-overlay .top p,
+.app.is-overlay .hint,
+.app.is-overlay .method,
+.app.is-overlay .extras,
+.app.is-overlay .wheel-panel,
+.app.is-overlay .log {
+  display: none;
+}
+
+.app.is-overlay .layout {
+  grid-template-columns: 1fr;
+}
+
+.app.is-overlay .stick {
+  width: 180px;
+  height: 180px;
+}
+
+.app.is-overlay .connect-row {
+  grid-template-columns: 1fr;
+}
+
 .connect-row {
   display: grid;
   grid-template-columns: auto 1fr auto auto;

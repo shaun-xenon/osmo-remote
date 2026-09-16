@@ -22,4 +22,6 @@ contextBridge.exposeInMainWorld("osmo", {
     ipcRenderer.on("sidecar:event", wrapped);
     return () => ipcRenderer.removeListener("sidecar:event", wrapped);
   },
+  setAlwaysOnTop: (enabled) => ipcRenderer.invoke("window:alwaysOnTop", enabled),
+  setCompact: (enabled) => ipcRenderer.invoke("window:compact", enabled),
 });
