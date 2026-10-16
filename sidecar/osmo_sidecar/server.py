@@ -65,7 +65,7 @@ class SidecarServer:
         await self._emit(response)
 
     async def _cmd_scan(self, request: dict[str, Any]) -> dict[str, Any]:
-        timeout = float(request.get("timeout", 8))
+        timeout = float(request.get("timeout", 10))
         devices = await self.gimbal.scan(timeout=timeout)
         rows = [
             {"address": d.address, "name": d.name, "rssi": d.rssi, "likely": d.likely}
@@ -82,8 +82,14 @@ class SidecarServer:
             timeout=float(request.get("timeout", 20)),
             name=request.get("name"),
         )
+        try:
+            profile = await self.gimbal.apply_profile()
+        except Exception as exc:  # noqa: BLE001 — GATT is up; do not fail connect
+            profile = {"applied": [], "skipped": [{"id": "profile", "error": str(exc)}]}
         await self._emit_status()
-        return inspect_to_dict(inspect)
+        payload = inspect_to_dict(inspect)
+        payload["profile"] = profile
+        return payload
 
     async def _cmd_disconnect(self, _request: dict[str, Any]) -> dict[str, Any]:
         await self.gimbal.disconnect()
@@ -98,7 +104,16 @@ class SidecarServer:
         pitch = float(request.get("pitch", 0))
         max_speed = int(request.get("max_speed", 1200))
         method = str(request.get("method", "speed"))
-        await self.gimbal.joystick(yaw, pitch, max_speed=max_speed, method=method)
+        invert_yaw = bool(request.get("invert_yaw"))
+        invert_pitch = bool(request.get("invert_pitch"))
+        await self.gimbal.joystick(
+            yaw,
+            pitch,
+            max_speed=max_speed,
+            method=method,
+            invert_yaw=invert_yaw,
+            invert_pitch=invert_pitch,
+        )
         return {"yaw": yaw, "pitch": pitch}
 
     async def _cmd_stop(self, _request: dict[str, Any]) -> dict[str, Any]:
@@ -136,6 +151,46 @@ class SidecarServer:
     async def _cmd_wheel(self, request: dict[str, Any]) -> dict[str, Any]:
         await self.gimbal.wheel(float(request.get("delta", 0)))
         return {}
+
+    async def _cmd_send_raw(self, request: dict[str, Any]) -> dict[str, Any]:
+        hex_payload = request.get("hex")
+        if not hex_payload:
+            raise ValueError("hex required")
+        return await self.gimbal.send_raw(str(hex_payload))
+
+    async def _cmd_settings(self, _request: dict[str, Any]) -> dict[str, Any]:
+        from osmo_sidecar.features import build_inventory, load_catalog, summarize_layers
+
+        catalog = load_catalog()
+        return {
+            "shooting": catalog.get("shooting"),
+            "later": catalog.get("later"),
+            "screenshots": catalog.get("screenshots"),
+            "hci_snoop": catalog.get("hci_snoop"),
+            "layers": summarize_layers(),
+            "commands": self.gimbal.list_settings(),
+            "inventory": build_inventory(),
+        }
+
+    async def _cmd_apply_setting(self, request: dict[str, Any]) -> dict[str, Any]:
+        name = request.get("id") or request.get("name")
+        if not name:
+            raise ValueError("id required")
+        return await self.gimbal.apply_setting(str(name))
+
+    async def _cmd_apply_profile(self, request: dict[str, Any]) -> dict[str, Any]:
+        names = request.get("ids")
+        if names is not None and not isinstance(names, list):
+            raise ValueError("ids must be a list")
+        return await self.gimbal.apply_profile(names)
+
+    async def _cmd_decode(self, request: dict[str, Any]) -> dict[str, Any]:
+        from osmo_sidecar.capture import decode_capture
+
+        hex_payload = request.get("hex")
+        if not hex_payload:
+            raise ValueError("hex required")
+        return decode_capture(str(hex_payload))
 
     async def _cmd_status(self, _request: dict[str, Any]) -> dict[str, Any]:
         return self._status_payload()

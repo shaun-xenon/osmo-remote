@@ -13,6 +13,11 @@ let sidecar = null;
 let buffer = "";
 let nextId = 1;
 const pending = new Map();
+const timedOut = new Set();
+// connect: reclaim (~16–32s) + 4×(drop_stale 6s + Bleak 20s + backoff) can exceed 130s.
+const CONNECT_IPC_TIMEOUT_MS = 180000;
+const SCAN_IPC_TIMEOUT_MS = 90000;
+const DEFAULT_IPC_TIMEOUT_MS = 30000;
 
 function sidecarPython() {
   const venv = path.join(__dirname, "..", "sidecar", ".venv", "bin", "python");
@@ -27,12 +32,18 @@ function sendToSidecar(payload) {
     }
     const id = nextId;
     nextId += 1;
-    pending.set(id, { resolve, reject });
+    pending.set(id, { resolve, reject, cmd: payload.cmd });
     sidecar.stdin.write(`${JSON.stringify({ id, ...payload })}\n`);
-    const timeoutMs = payload.cmd === "connect" || payload.cmd === "scan" ? 45000 : 30000;
+    const timeoutMs =
+      payload.cmd === "connect"
+        ? CONNECT_IPC_TIMEOUT_MS
+        : payload.cmd === "scan"
+          ? SCAN_IPC_TIMEOUT_MS
+          : DEFAULT_IPC_TIMEOUT_MS;
     setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
+        timedOut.add(id);
         reject(new Error(`Sidecar timeout for ${payload.cmd}`));
       }
     }, timeoutMs);
@@ -56,7 +67,21 @@ function handleSidecarLine(line) {
   if (message.id != null && pending.has(message.id)) {
     const { resolve } = pending.get(message.id);
     pending.delete(message.id);
+    timedOut.delete(message.id);
     resolve(message);
+    return;
+  }
+  if (message.id != null && timedOut.has(message.id)) {
+    timedOut.delete(message.id);
+    // Late connect success after IPC timeout: sync UI so GATT is not orphaned.
+    if (message.ok && message.result && Object.hasOwn(message.result, "has_fff0")) {
+      emitToRenderer("sidecar:status", {
+        event: "status",
+        connected: true,
+        address: message.result.address ?? null,
+        name: message.result.name ?? null,
+      });
+    }
     return;
   }
   if (message.event === "status") {

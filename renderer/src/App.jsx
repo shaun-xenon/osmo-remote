@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Settings } from "./Settings.jsx";
 import { Stick } from "./Stick.jsx";
 import { Wheel } from "./Wheel.jsx";
 
 const DEADZONE = 0.06;
 const DEFAULT_WHEEL_REASON =
-  "Zoom/focus is not mapped. DJI documents the 7P side wheel as requiring DJI Mimo. Sniff while turning the physical wheel; a mapping file is required before these buttons do anything.";
+  "Zoom/focus is not mapped. Sniff the physical wheel while this app is connected, or decode an HCI capture, then put hex in sidecar/wheel_map.json.";
 
 function request(cmd, payload = {}) {
   if (!window.osmo?.request) {
@@ -64,11 +65,13 @@ export function App() {
   const [pad, setPad] = useState({ x: 0, y: 0, connected: false, id: "" });
   const [speed, setSpeed] = useState(0.7);
   const [method, setMethod] = useState("speed");
+  const [invertPitch, setInvertPitch] = useState(false);
   const [logs, setLogs] = useState([]);
   const [busy, setBusy] = useState(false);
   const [sniffing, setSniffing] = useState(false);
   const [overlay, setOverlay] = useState(false);
   const [onTop, setOnTop] = useState(false);
+  const [commands, setCommands] = useState([]);
   const moving = useRef(false);
   const axesRef = useRef({ x: 0, y: 0 });
   const sending = useRef(false);
@@ -104,8 +107,22 @@ export function App() {
   }, [pushLog]);
 
   useEffect(() => {
+    request("settings")
+      .then((response) => {
+        if (response.ok) {
+          setCommands(response.result.commands ?? []);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const down = (event) => {
-      if (event.repeat || event.target instanceof HTMLInputElement) {
+      if (
+        event.repeat ||
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement
+      ) {
         return;
       }
       setKeys((current) => nextKeys(current, event.code, true));
@@ -136,6 +153,7 @@ export function App() {
           pitch: current.y,
           max_speed: Math.round(80 + speed * 1720),
           method,
+          invert_pitch: invertPitch,
         })
           .catch((error) => pushLog(error.message))
           .finally(() => {
@@ -147,13 +165,15 @@ export function App() {
       }
     }, 50);
     return () => window.clearInterval(id);
-  }, [connected, method, pushLog, speed]);
+  }, [connected, invertPitch, method, pushLog, speed]);
 
   async function scan() {
     setScanning(true);
-    pushLog("Scanning BLE… disconnect Mimo and unpair in KDE first.");
+    pushLog(
+      "Scanning BLE… kicking KDE off the gimbal (untrust, not forget). On the phone, unpair only the OM7P — keep Bluetooth on for mics.",
+    );
     try {
-      const response = await request("scan", { timeout: 8 });
+      const response = await request("scan", { timeout: 10 });
       if (!response.ok) {
         throw new Error(response.error);
       }
@@ -189,6 +209,13 @@ export function App() {
       pushLog(
         `GATT fff0=${info.has_fff0} fff4=${info.has_fff4} fff5=${info.has_fff5} mtu=${info.mtu}`,
       );
+      const profile = info.profile;
+      if (profile?.applied?.length) {
+        pushLog(`Profile applied: ${profile.applied.join(", ")}`);
+      }
+      if (profile?.skipped?.length) {
+        pushLog(`Profile skipped: ${profile.skipped.map((row) => row.id).join(", ")}`);
+      }
       setConnected(true);
     } catch (error) {
       pushLog(error.message);
@@ -278,6 +305,62 @@ export function App() {
     }
   }
 
+  async function applySetting(id) {
+    try {
+      const response = await request("apply_setting", { id });
+      if (!response.ok) {
+        throw new Error(response.error);
+      }
+      pushLog(`Applied ${id}`);
+    } catch (error) {
+      pushLog(error.message);
+    }
+  }
+
+  async function applyProfile() {
+    try {
+      const response = await request("apply_profile");
+      if (!response.ok) {
+        throw new Error(response.error);
+      }
+      const result = response.result;
+      pushLog(`Profile applied: ${(result.applied ?? []).join(", ") || "nothing"}`);
+      if (result.skipped?.length) {
+        pushLog(`Skipped: ${result.skipped.map((row) => row.id).join(", ")}`);
+      }
+    } catch (error) {
+      pushLog(error.message);
+    }
+  }
+
+  async function sendRaw(hex) {
+    try {
+      const response = await request("send_raw", { hex });
+      if (!response.ok) {
+        throw new Error(response.error);
+      }
+      pushLog(`Sent ${response.result.bytes} bytes`);
+    } catch (error) {
+      pushLog(error.message);
+    }
+  }
+
+  async function decodeHex(hex) {
+    try {
+      const response = await request("decode", { hex });
+      if (!response.ok) {
+        throw new Error(response.error);
+      }
+      const result = response.result;
+      pushLog(`Decode: ${result.total} frames, interesting=${result.interesting?.length ?? 0}`);
+      for (const row of result.interesting ?? []) {
+        pushLog(row.summary);
+      }
+    } catch (error) {
+      pushLog(error.message);
+    }
+  }
+
   async function wheelDelta(delta) {
     try {
       const response = await request("wheel", { delta });
@@ -313,7 +396,7 @@ export function App() {
       <header className="top">
         <div>
           <h1>Osmo Remote</h1>
-          <p>Close DJI Mimo. Disconnect the gimbal in KDE Bluetooth before Connect.</p>
+          <p>Phone records. This app only flies the gimbal. Keep phone Bluetooth for mics; unpair only the OM7P.</p>
         </div>
         <div className="top-actions">
           <button type="button" className={overlay ? "is-active" : ""} onClick={toggleOverlay}>
@@ -377,12 +460,25 @@ export function App() {
               <option value="pwm">PWM joystick</option>
             </select>
           </label>
+          <label className="method">
+            <input
+              type="checkbox"
+              checked={invertPitch}
+              onChange={(event) => setInvertPitch(event.target.checked)}
+            />
+            PC invert pitch (Mimo handle invert is Vertical)
+          </label>
+          <p className="hint">
+            Live packets: Recenter, PTF, Lock, FPV. PTF is already sent on connect, so that button
+            can look like a no-op. Lock should freeze follow. Zoom/focus, cal, invert, sleep are
+            listed on the right until we map them.
+          </p>
           <div className="actions">
             <button type="button" disabled={!connected} onClick={recenter}>
               Recenter
             </button>
             <button type="button" disabled={!connected} onClick={() => setMode("follow")}>
-              Follow
+              PTF
             </button>
             <button type="button" disabled={!connected} onClick={() => setMode("lock")}>
               Lock
@@ -391,22 +487,38 @@ export function App() {
               FPV
             </button>
           </div>
-          <div className="actions extras">
-            <button type="button" disabled={!connected} onClick={pairProbe}>
-              Pairing poke
-            </button>
-            <button type="button" disabled={!connected} onClick={toggleSniff}>
-              {sniffing ? "Stop sniff" : "Sniff wheel"}
-            </button>
-          </div>
+          <details className="extras">
+            <summary>Lab (no visible gimbal move)</summary>
+            <p className="hint">
+              Pairing poke is a Pocket leftover. Sniff only logs DUML while you turn the side wheel.
+            </p>
+            <div className="actions">
+              <button type="button" disabled={!connected} onClick={pairProbe}>
+                Pairing poke
+              </button>
+              <button type="button" disabled={!connected} onClick={toggleSniff}>
+                {sniffing ? "Stop sniff" : "Sniff wheel"}
+              </button>
+            </div>
+          </details>
           <p className="gamepad">{pad.connected ? `Gamepad: ${pad.id}` : "No gamepad"}</p>
         </section>
 
-        <Wheel
-          disabled={!status.wheel_supported}
-          reason={status.wheel_reason || DEFAULT_WHEEL_REASON}
-          onDelta={wheelDelta}
-        />
+        <div className="side-column">
+          <Wheel
+            disabled={!status.wheel_supported}
+            reason={status.wheel_reason || DEFAULT_WHEEL_REASON}
+            onDelta={wheelDelta}
+          />
+          <Settings
+            connected={connected}
+            commands={commands}
+            onApply={applySetting}
+            onApplyProfile={applyProfile}
+            onSendRaw={sendRaw}
+            onDecode={decodeHex}
+          />
+        </div>
       </div>
 
       <section className="log">

@@ -1,0 +1,41 @@
+{
+  "note": "Copy to settings_map.json. Built-in commands work without hex. Fill hex for firmware settings captured via decode-capture or live sniff. apply_on_connect runs after BLE connect. Targets match the 2026-09-16 Mimo screenshots (PTF, Fast, invert vertical, sleep disabled, …).",
+  "apply_on_connect": ["mode_follow"],
+  "targets": {
+    "mode_follow": "PTF",
+    "responsiveness": "Fast",
+    "zoom_speed": "5",
+    "joystick_function": "Control Gimbal",
+    "rotational_speed": "Fast",
+    "joystick_control": "Free",
+    "invert_joystick": "Vertical",
+    "side_wheel_function": "None",
+    "invert_side_wheel": "Off",
+    "sound": "on",
+    "gimbal_indicator": "on",
+    "extend_tilt": "off",
+    "sleep": "Disable",
+    "demo_mode": "off"
+  },
+  "commands": {
+    "mode_pf": "",
+    "mode_spinshot": "",
+    "gimbal_auto_cal": "",
+    "horizontal_adjust": "",
+    "responsiveness": "",
+    "zoom_speed": "",
+    "joystick_function": "",
+    "rotational_speed": "",
+    "joystick_control": "",
+    "invert_joystick": "",
+    "side_wheel_function": "",
+    "invert_side_wheel": "",
+    "sound": "",
+    "gimbal_indicator": "",
+    "extend_tilt": "",
+    "restore_gimbal": "",
+    "sleep": "",
+    "demo_mode": "",
+    "device_name": ""
+  }
+}
