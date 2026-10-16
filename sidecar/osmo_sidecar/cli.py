@@ -1,4 +1,4 @@
-"""CLI for scan / connect / inspect / pulse / sniff / serve."""
+"""CLI for scan / connect / inspect / pulse / sniff / decode / serve."""
 
 from __future__ import annotations
 
@@ -9,7 +9,10 @@ import logging
 import sys
 from pathlib import Path
 
+from osmo_sidecar.capture import decode_capture, diff_captures
+from osmo_sidecar.features import build_inventory, load_catalog, summarize_layers
 from osmo_sidecar.gimbal import Gimbal, inspect_to_dict
+from osmo_sidecar.profile import list_commands
 from osmo_sidecar.server import SidecarServer
 
 
@@ -38,6 +41,30 @@ def main(argv: list[str] | None = None) -> None:
     pair = sub.add_parser("pair-probe", help="Write Pocket-3 pairing poke to fff4")
     pair.add_argument("address")
 
+    decode = sub.add_parser(
+        "decode-capture",
+        help="Extract labeled DUML from a btsnoop HCI log, sniff JSON, or hex dump",
+    )
+    decode.add_argument("path", type=Path)
+    decode.add_argument("--out", type=Path, default=None)
+
+    diff = sub.add_parser(
+        "diff-captures",
+        help="Show non-telemetry DUML added in the second capture (one setting toggle)",
+    )
+    diff.add_argument("before", type=Path)
+    diff.add_argument("after", type=Path)
+
+    send_raw = sub.add_parser("send-raw", help="Connect and replay a DUML hex frame")
+    send_raw.add_argument("address")
+    send_raw.add_argument("hex")
+
+    apply_cmd = sub.add_parser("apply", help="Connect and replay a named setting or builtin")
+    apply_cmd.add_argument("address")
+    apply_cmd.add_argument("name")
+
+    sub.add_parser("features", help="Print the Mimo-free feature catalog")
+    sub.add_parser("inventory", help="Print the screenshot defaults dump and mapping status")
     sub.add_parser("serve", help="JSON-lines stdio server for the Electron app")
 
     args = parser.parse_args(argv)
@@ -57,12 +84,46 @@ async def _dispatch(args: argparse.Namespace) -> None:
     if args.cmd == "serve":
         await SidecarServer().run()
         return
+    if args.cmd == "features":
+        catalog = load_catalog()
+        print(catalog.get("shooting", ""))
+        print(f"layers: {summarize_layers()}")
+        for row in list_commands():
+            flag = "ready" if row["ready"] else row["status"]
+            print(f"{row['id']:32} {row['layer']:8} {flag:14} {row.get('summary') or ''}")
+        return
+    if args.cmd == "inventory":
+        inventory = build_inventory()
+        print(json.dumps(inventory, indent=2))
+        return
+    if args.cmd == "diff-captures":
+        result = diff_captures(args.before, args.after)
+        print(json.dumps(result, indent=2))
+        print(f"added {result['added_count']} non-telemetry frame(s)", file=sys.stderr)
+        return
+    if args.cmd == "decode-capture":
+        result = decode_capture(args.path)
+        text = json.dumps(result, indent=2)
+        if args.out:
+            args.out.write_text(text)
+            print(f"Wrote {args.out}", file=sys.stderr)
+        else:
+            print(text)
+        print(
+            f"{result['kind']}: {result['total']} DUML frames, "
+            f"{len(result['interesting'])} non-telemetry, crc_ok={result['crc_ok']}",
+            file=sys.stderr,
+        )
+        return
 
     gimbal = Gimbal()
     if args.cmd == "scan":
         devices = await gimbal.scan(timeout=args.timeout)
         if not devices:
-            print("No BLE advertisements seen. Power the gimbal, disconnect Mimo, and unpair in KDE.")
+            print(
+                "No BLE advertisements seen. Power the gimbal. Scan already untrusts the OM7P in BlueZ; "
+                "on the phone, unpair only the gimbal."
+            )
             return
         for device in devices:
             mark = "*" if device.likely else " "
@@ -100,6 +161,12 @@ async def _dispatch(args: argparse.Namespace) -> None:
             else:
                 print(text)
             print(analysis["wheel_reason"], file=sys.stderr)
+        elif args.cmd == "send-raw":
+            sent = await gimbal.send_raw(args.hex)
+            print(json.dumps(sent, indent=2))
+        elif args.cmd == "apply":
+            result = await gimbal.apply_setting(args.name)
+            print(json.dumps(result, indent=2))
     finally:
         await gimbal.disconnect()
 

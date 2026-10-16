@@ -118,6 +118,7 @@ h1 {
 .app.is-overlay .method,
 .app.is-overlay .extras,
 .app.is-overlay .wheel-panel,
+.app.is-overlay .settings-panel,
 .app.is-overlay .log {
   display: none;
 }
@@ -150,6 +151,7 @@ h1 {
 
 .stick-panel,
 .wheel-panel,
+.settings-panel,
 .log {
   background: #1c2028;
   border: 1px solid #2b303b;
@@ -220,6 +222,10 @@ h1 {
 }
 
 .actions button {
+  background: #3b82f6;
+}
+
+.actions button:disabled {
   background: #334155;
 }
 
@@ -244,6 +250,66 @@ h1 {
 
 .wheel-panel.is-disabled .badge {
   background: #3f2d14;
+}
+
+.side-column {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-panel h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.setting-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.setting-group button {
+  background: #3b82f6;
+}
+
+.settings-panel header button {
+  background: #3b82f6;
+}
+
+.settings-panel header button:disabled,
+.setting-group button:disabled {
+  background: #334155;
+}
+
+.setting-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #9aa3b2;
+  font-size: 13px;
+}
+
+.raw-lab {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.raw-lab textarea {
+  width: 100%;
+  background: #111318;
+  border: 1px solid #2b303b;
+  border-radius: 8px;
+  padding: 8px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
 }
 
 .wheel-buttons {

@@ -1,0 +1,349 @@
+{
+  "shooting": "Mimo is not used at shoot time. Picture and record stay on the phone: stock camera, a third-party camera app, or DroidCam. Tracking without Mimo is the OM7P Multifunctional Module (trigger/gestures). This PC app only owns the gimbal over BLE.",
+  "source": "Five Mimo screenshots 2026-09-16 by capture time: 17:49:08 + 17:50:06 Gimbal; 17:50:38 ActiveTrack; 17:51:09 + 17:51:31 General. Device OM7P-307GHV, firmware 01.06.00.02. HCI snoop not pulled yet.",
+  "screenshots": [
+    {"captured": "2026-09-16T17:49:08", "tab": "gimbal", "region": "mode PTF through joystick start"},
+    {"captured": "2026-09-16T17:50:06", "tab": "gimbal", "region": "joystick rest, side wheel, sound, indicator, extend tilt, restore"},
+    {"captured": "2026-09-16T17:50:38", "tab": "activetrack", "region": "full ActiveTrack tab"},
+    {"captured": "2026-09-16T17:51:09", "tab": "general", "region": "device connection, frame 16:9, other settings start"},
+    {"captured": "2026-09-16T17:51:31", "tab": "general", "region": "sleep through demo mode and instructions"}
+  ],
+  "hci_snoop": "pending",
+  "later": {
+    "activetrack": "Ignore the Mimo ActiveTrack tab. Tracking is the Multifunctional Module plus the phone camera app.",
+    "general_camera": "Set 16:9, grid, and selfie flip in the phone camera app. Sleep and demo mode stay on the gimbal hunt list."
+  },
+  "features": [
+    {
+      "id": "mode_follow",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "proven",
+      "builtin": "set_mode",
+      "mimo_label": "Gimbal Mode PTF",
+      "observed": "PTF",
+      "summary": "Pan and tilt follow. Mimo's selected mode. Sent as set_mode follow (cmd 0x4C, value 1)."
+    },
+    {
+      "id": "mode_pf",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Gimbal Mode PF",
+      "observed": "off",
+      "summary": "Pan follow / tilt locked. Visible in Mimo next to PTF. Needs a captured mode byte."
+    },
+    {
+      "id": "mode_fpv",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "proven",
+      "builtin": "set_mode",
+      "mimo_label": "Gimbal Mode FPV",
+      "observed": "off",
+      "summary": "FPV mode packet (cmd 0x4C, value 2)."
+    },
+    {
+      "id": "mode_spinshot",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Gimbal Mode SpinShot",
+      "observed": "off",
+      "summary": "SpinShot (truncated as Spin in Mimo). Needs a captured mode byte."
+    },
+    {
+      "id": "mode_lock",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "proven",
+      "builtin": "set_mode",
+      "mimo_label": "Lock (trigger hold / not on this settings strip)",
+      "observed": "not on mode strip",
+      "summary": "Lock mode packet (cmd 0x4C, value 0). Hardware: hold trigger."
+    },
+    {
+      "id": "recenter",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "proven",
+      "builtin": "recenter",
+      "summary": "Stop then absolute rotate to 0,0,0. Hardware: double-press trigger."
+    },
+    {
+      "id": "pc_stick",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "proven",
+      "builtin": "joystick",
+      "summary": "Laptop stick / WASD / gamepad SPEED or PWM. Independent of the physical joystick firmware settings."
+    },
+    {
+      "id": "gimbal_auto_cal",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Gimbal Auto Calibration",
+      "observed": "action",
+      "summary": "One-shot calibration. Place on a level surface. Needs a captured DUML write."
+    },
+    {
+      "id": "horizontal_adjust",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Horizontal Gimbal Adjustment",
+      "observed": "action",
+      "summary": "Horizon trim. Needs a captured DUML write."
+    },
+    {
+      "id": "responsiveness",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Gimbal Responsiveness",
+      "observed": "Fast",
+      "summary": "Follow smoothness. Target: Fast."
+    },
+    {
+      "id": "zoom_speed",
+      "tab": "gimbal",
+      "layer": "unknown",
+      "status": "unmapped",
+      "mimo_label": "Zoom Speed",
+      "observed": "5",
+      "summary": "Mimo: applies to both side wheel and joystick zoom speed. Target: 5."
+    },
+    {
+      "id": "joystick_function",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Joystick Function",
+      "observed": "Control Gimbal",
+      "summary": "Physical handle joystick role. Target: Control Gimbal."
+    },
+    {
+      "id": "rotational_speed",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Rotational Speed",
+      "observed": "Fast",
+      "summary": "Physical joystick rotational speed (not the PC speed slider). Target: Fast."
+    },
+    {
+      "id": "joystick_control",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Joystick Control",
+      "observed": "Free",
+      "summary": "Free vs horiz/vert axis lock on the physical joystick. Target: Free."
+    },
+    {
+      "id": "invert_joystick",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Invert Joystick Direction",
+      "observed": "Vertical",
+      "summary": "Invert physical joystick. Target: Vertical."
+    },
+    {
+      "id": "side_wheel_function",
+      "tab": "gimbal",
+      "layer": "unknown",
+      "status": "unmapped",
+      "mimo_label": "Side Wheel Function",
+      "observed": "None",
+      "summary": "Mimo currently None. Other options typically zoom/focus/fill light. Keep None until wheel packets are mapped."
+    },
+    {
+      "id": "invert_side_wheel",
+      "tab": "gimbal",
+      "layer": "unknown",
+      "status": "unmapped",
+      "mimo_label": "Invert Side Wheel Direction",
+      "observed": "Off",
+      "summary": "Target: Off."
+    },
+    {
+      "id": "sound",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Sound",
+      "observed": "on",
+      "summary": "Gimbal beeps. Target: on."
+    },
+    {
+      "id": "gimbal_indicator",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Gimbal Indicator",
+      "observed": "on",
+      "summary": "Mimo subtitle: Recording Status Indicator. Target: on."
+    },
+    {
+      "id": "extend_tilt",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Extended Tilt Mode",
+      "observed": "off",
+      "summary": "Larger tilt range, tilt-only control for static/desktop shots. Target: off."
+    },
+    {
+      "id": "restore_gimbal",
+      "tab": "gimbal",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Restore Gimbal Parameters",
+      "observed": "action",
+      "summary": "Factory-reset gimbal settings. Do not put on apply_on_connect."
+    },
+    {
+      "id": "sleep",
+      "tab": "general",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Sleep",
+      "observed": "Disable",
+      "summary": "Auto-sleep. Target: Disable. Hardware standby is M-button triple press."
+    },
+    {
+      "id": "demo_mode",
+      "tab": "general",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Demo Mode",
+      "observed": "off",
+      "summary": "When stationary for a long time, gimbal rotates a preset pattern. Target: off."
+    },
+    {
+      "id": "zoom_in",
+      "tab": "gimbal",
+      "layer": "unknown",
+      "status": "unmapped",
+      "summary": "Replay zoom-in from sidecar/wheel_map.json once hex is captured."
+    },
+    {
+      "id": "zoom_out",
+      "tab": "gimbal",
+      "layer": "unknown",
+      "status": "unmapped",
+      "summary": "Replay zoom-out from sidecar/wheel_map.json."
+    },
+    {
+      "id": "active_track_fast_follow",
+      "tab": "activetrack",
+      "layer": "module",
+      "status": "out_of_scope",
+      "mimo_label": "Fast Follow",
+      "observed": "Slow",
+      "summary": "Mimo ActiveTrack only (shown Slow). Use the Multifunctional Module for tracking in a phone camera app.",
+      "decision": "Ignore Mimo ActiveTrack. Use the Multifunctional Module with the phone camera."
+    },
+    {
+      "id": "active_track_subject_location",
+      "tab": "activetrack",
+      "layer": "module",
+      "status": "out_of_scope",
+      "mimo_label": "Subject Location",
+      "observed": "Camera View Center",
+      "summary": "Mimo framing. Module tracking uses trigger/gestures/joystick composition instead.",
+      "decision": "Ignore Mimo ActiveTrack. Use the Multifunctional Module with the phone camera."
+    },
+    {
+      "id": "active_track_tilt_follow",
+      "tab": "activetrack",
+      "layer": "module",
+      "status": "out_of_scope",
+      "mimo_label": "Tilt Follow",
+      "observed": "on",
+      "summary": "Mimo: gimbal follows subject in tilt. Module tracking replaces this.",
+      "decision": "Ignore Mimo ActiveTrack. Use the Multifunctional Module with the phone camera."
+    },
+    {
+      "id": "selfie_active_track",
+      "tab": "activetrack",
+      "layer": "module",
+      "status": "out_of_scope",
+      "mimo_label": "Selfie ActiveTrack",
+      "observed": "on",
+      "summary": "Mimo front-camera auto track. Point the module camera at the subject instead.",
+      "decision": "Ignore Mimo ActiveTrack. Use the Multifunctional Module with the phone camera."
+    },
+    {
+      "id": "photo_aspect",
+      "tab": "general",
+      "layer": "phone",
+      "status": "out_of_scope",
+      "mimo_label": "Frame",
+      "observed": "16:9",
+      "summary": "Set 16:9 in the phone camera app (stock, third-party, or DroidCam). Not a gimbal command.",
+      "decision": "Configure 16:9 in the phone camera app, not over BLE."
+    },
+    {
+      "id": "grid",
+      "tab": "general",
+      "layer": "phone",
+      "status": "out_of_scope",
+      "mimo_label": "Grid",
+      "observed": "Grid + Diagonals",
+      "summary": "Set an equivalent overlay in the phone camera app if you want it.",
+      "decision": "Grid is a camera-app overlay, not gimbal firmware."
+    },
+    {
+      "id": "selfie_flip",
+      "tab": "general",
+      "layer": "phone",
+      "status": "out_of_scope",
+      "mimo_label": "Selfie Flip",
+      "observed": "on",
+      "summary": "Front-camera mirroring. Belongs to the phone camera app.",
+      "decision": "Selfie flip stays in the phone camera app."
+    },
+    {
+      "id": "unstitched_pano",
+      "tab": "general",
+      "layer": "phone",
+      "status": "out_of_scope",
+      "mimo_label": "Save Unstitched Pano Photos",
+      "observed": "off",
+      "summary": "Mimo panorama pipeline only.",
+      "decision": "Mimo-only. Unused when shooting in a phone camera app."
+    },
+    {
+      "id": "show_more_modes",
+      "tab": "general",
+      "layer": "phone",
+      "status": "out_of_scope",
+      "mimo_label": "Show More Modes",
+      "observed": "on",
+      "summary": "Mimo Story / ShotGuides / Parents & Kids. Unused if Mimo is not the camera.",
+      "decision": "Mimo-only. Unused when shooting in a phone camera app."
+    },
+    {
+      "id": "story_clips",
+      "tab": "general",
+      "layer": "phone",
+      "status": "out_of_scope",
+      "mimo_label": "Save each video clip in Story mode",
+      "observed": "off",
+      "summary": "Mimo Story mode only.",
+      "decision": "Mimo-only. Unused when shooting in a phone camera app."
+    },
+    {
+      "id": "device_name",
+      "tab": "general",
+      "layer": "ble",
+      "status": "unmapped",
+      "mimo_label": "Device Name",
+      "observed": "OM7P-307GHV",
+      "summary": "BLE advertised name. Read-only unless a rename packet is captured."
+    }
+  ]
+}

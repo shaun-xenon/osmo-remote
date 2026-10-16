@@ -7,6 +7,7 @@ from osmo_sidecar.duml import (
     build_set_mode,
     build_speed_rotate,
     map_stick,
+    packet_crc_ok,
     stick_to_pwm,
     stick_to_speed,
 )
@@ -58,6 +59,8 @@ def test_map_stick_forward_is_nose_down() -> None:
     assert yaw == 0.5
     assert pitch == -1.0
     assert map_stick(0.0, -1.0)[1] == 1.0
+    assert map_stick(0.5, 1.0, invert_pitch=True)[1] == 1.0
+    assert map_stick(0.5, 0.0, invert_yaw=True)[0] == -0.5
 
 
 def test_stick_scaling_deadzone() -> None:
@@ -80,3 +83,11 @@ def test_build_packet_length_field() -> None:
     packet = build_packet(0x04, 0x01, b"\x00" * 6, seq=1)
     length = int.from_bytes(packet[1:3], "little") & 0x3FF
     assert length == len(packet)
+
+
+def test_packet_crc_ok() -> None:
+    packet = build_set_mode(1, seq=2)
+    assert packet_crc_ok(packet)
+    broken = bytearray(packet)
+    broken[-1] ^= 0xFF
+    assert packet_crc_ok(bytes(broken)) is False

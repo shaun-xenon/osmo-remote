@@ -55,12 +55,40 @@ class DumlPacket:
     def is_telemetry(self) -> bool:
         return (self.cmd_set, self.cmd) in TELEMETRY_CMDS
 
+    @property
+    def crc_ok(self) -> bool:
+        return packet_crc_ok(self.raw)
+
     def summary(self) -> str:
         return (
             f"len={self.length} {self.sender:#04x}->{self.receiver:#04x} "
             f"seq={self.seq} set=0x{self.cmd_set:02x} cmd=0x{self.cmd:02x} "
             f"payload={self.payload.hex(' ') or '-'}"
         )
+
+    def as_row(self) -> dict[str, object]:
+        return {
+            "cmd_set": self.cmd_set,
+            "cmd": self.cmd,
+            "sender": self.sender,
+            "receiver": self.receiver,
+            "seq": self.seq,
+            "payload": self.payload.hex(),
+            "raw": self.raw.hex(),
+            "telemetry": self.is_telemetry,
+            "crc_ok": self.crc_ok,
+            "summary": self.summary(),
+            "label": f"0x{self.cmd_set:02x}/0x{self.cmd:02x}",
+        }
+
+
+def packet_crc_ok(raw: bytes) -> bool:
+    if len(raw) < 13:
+        return False
+    if crc8(raw[:3]) != raw[3]:
+        return False
+    body = raw[4:-2]
+    return crc16(body).to_bytes(2, "little") == raw[-2:]
 
 
 class DumlParser:
@@ -191,9 +219,21 @@ def build_set_mode(mode: int, *, seq: int = 1) -> bytes:
     return build_packet(CMDSET_GIMBAL, CMD_GIMBAL_SET_MODE, bytes([mode & 0xFF, 0x00]), seq=seq)
 
 
-def map_stick(yaw: float, pitch: float) -> tuple[float, float]:
-    """Clamp stick axes. Positive Y (up/forward) is a nose-down pitch."""
-    return (max(-1.0, min(1.0, yaw)), max(-1.0, min(1.0, -pitch)))
+def map_stick(
+    yaw: float,
+    pitch: float,
+    *,
+    invert_yaw: bool = False,
+    invert_pitch: bool = False,
+) -> tuple[float, float]:
+    """Clamp stick axes. Positive Y (up/forward) is a nose-down pitch unless invert_pitch."""
+    mapped_yaw = max(-1.0, min(1.0, yaw))
+    mapped_pitch = max(-1.0, min(1.0, -pitch))
+    if invert_yaw:
+        mapped_yaw = -mapped_yaw
+    if invert_pitch:
+        mapped_pitch = -mapped_pitch
+    return (mapped_yaw, mapped_pitch)
 
 
 def stick_to_speed(axis: float, max_speed: int) -> int:

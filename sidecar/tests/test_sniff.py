@@ -11,7 +11,7 @@ def test_analyze_sniff_ignores_telemetry() -> None:
     analysis = gimbal.analyze_sniff(packets)
     assert analysis["wheel_supported"] is False
     assert analysis["total"] == 3
-    assert "Mimo" in analysis["wheel_reason"]
+    assert "wheel_map.json" in analysis["wheel_reason"]
 
 
 def test_analyze_sniff_does_not_enable_wheel_without_map() -> None:

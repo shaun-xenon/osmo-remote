@@ -15,6 +15,7 @@ from bleak import BleakClient, BleakScanner
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.exc import BleakError
 
+from osmo_sidecar.bluez import reclaim_osmo_sessions
 from osmo_sidecar.duml import (
     CMDSET_BATTERY,
     CMD_BATTERY,
@@ -22,12 +23,20 @@ from osmo_sidecar.duml import (
     DumlParser,
     PWM_CENTER,
     build_absolute_rotate,
+    build_packet,
     build_pwm,
     build_set_mode,
     build_speed_rotate,
     map_stick,
+    packet_crc_ok,
     stick_to_pwm,
     stick_to_speed,
+)
+from osmo_sidecar.profile import (
+    BUILTIN_COMMANDS,
+    hex_for,
+    list_commands,
+    load_settings_map,
 )
 
 log = logging.getLogger("osmo.gimbal")
@@ -71,9 +80,8 @@ class GimbalState:
     last_error: str | None = None
     wheel_supported: bool = False
     wheel_reason: str = (
-        "Zoom/focus is not mapped. DJI documents the 7P side wheel as requiring "
-        "DJI Mimo. Use sniff while turning the physical wheel, then replay if "
-        "non-telemetry packets appear."
+        "Zoom/focus is not mapped. Sniff the physical wheel while this app owns BLE, "
+        "then copy hex into sidecar/wheel_map.json."
     )
 
 
@@ -101,6 +109,9 @@ class Gimbal:
         return bool(self._client and self._client.is_connected)
 
     async def scan(self, timeout: float = 8.0) -> list[AdvertisedDevice]:
+        reclaimed = await reclaim_osmo_sessions()
+        if reclaimed:
+            log.info("reclaimed BlueZ sessions: %s", ", ".join(reclaimed))
         found: dict[str, AdvertisedDevice] = {}
 
         def _detected(device: Any, adv: Any) -> None:
@@ -141,7 +152,8 @@ class Gimbal:
     async def connect(self, address: str, timeout: float = 20.0, name: str | None = None) -> InspectResult:
         await self.disconnect()
         last_error: Exception | None = None
-        for attempt in range(1, 3):
+        await reclaim_osmo_sessions()
+        for attempt in range(1, 5):
             await drop_stale_connection(address)
             client = BleakClient(address, timeout=timeout, disconnected_callback=self._on_disconnected)
             try:
@@ -172,10 +184,12 @@ class Gimbal:
                         await client.disconnect()
                 except BleakError:
                     pass
+                await asyncio.sleep(0.8 * attempt)
         raise RuntimeError(
-            f"Connect failed: {last_error}. BlueZ often keeps the previous session. "
-            f"Run: bluetoothctl disconnect {address}   then Scan again. "
-            "Unpair the gimbal in KDE if Plasma connected to it."
+            f"Connect failed: {last_error}. On the phone, unpair only the Osmo gimbal "
+            "(leave Bluetooth on for mics). Then Scan again. "
+            "This app now untrusts the gimbal in BlueZ so KDE should not auto-connect "
+            "(that is not Forget — you should not need to remove it every time)."
         ) from last_error
 
     async def disconnect(self) -> None:
@@ -242,8 +256,22 @@ class Gimbal:
         client = self._require_client()
         await client.write_gatt_char(CHAR_FFF4, bytes([0x01, 0x00]), response=True)
 
-    async def joystick(self, yaw: float, pitch: float, *, max_speed: int = 1200, method: str = "speed") -> None:
-        yaw_axis, pitch_axis = map_stick(yaw, pitch)
+    async def joystick(
+        self,
+        yaw: float,
+        pitch: float,
+        *,
+        max_speed: int = 1200,
+        method: str = "speed",
+        invert_yaw: bool = False,
+        invert_pitch: bool = False,
+    ) -> None:
+        yaw_axis, pitch_axis = map_stick(
+            yaw,
+            pitch,
+            invert_yaw=invert_yaw,
+            invert_pitch=invert_pitch,
+        )
         if method == "pwm":
             packet = build_pwm(
                 stick_to_pwm(yaw_axis),
@@ -270,7 +298,7 @@ class Gimbal:
         await self._write(build_absolute_rotate(0, 0, 0, time=20, seq=self._next_seq()))
 
     async def set_mode(self, mode: str) -> None:
-        mapping = {"lock": 0, "follow": 1, "fpv": 2}
+        mapping = {"lock": 0, "follow": 1, "ptf": 1, "fpv": 2}
         if mode not in mapping:
             raise ValueError(f"Unknown mode: {mode}")
         await self._write(build_set_mode(mapping[mode], seq=self._next_seq()))
@@ -333,8 +361,57 @@ class Gimbal:
             raise RuntimeError(f"sidecar/wheel_map.json is missing '{key}'")
         await self._write(bytes.fromhex(str(payload_hex).replace(" ", "")))
 
-    async def send_raw(self, payload_hex: str) -> None:
-        await self._write(bytes.fromhex(payload_hex.replace(" ", "")))
+    async def send_raw(self, payload_hex: str) -> dict[str, Any]:
+        raw = bytes.fromhex(payload_hex.replace(" ", ""))
+        if not raw:
+            raise ValueError("hex payload is empty")
+        rewritten = rewrite_seq(raw, self._next_seq())
+        await self._write(rewritten)
+        return {
+            "bytes": len(rewritten),
+            "rewrote_seq": rewritten != raw,
+            "hex": rewritten.hex(),
+        }
+
+    async def apply_setting(self, name: str) -> dict[str, Any]:
+        builtin = BUILTIN_COMMANDS.get(name)
+        if builtin:
+            kind = builtin["kind"]
+            if kind == "recenter":
+                await self.recenter()
+            elif kind == "stop":
+                await self.stop()
+            elif kind == "set_mode":
+                await self.set_mode(str(builtin["mode"]))
+            elif kind == "joystick":
+                return {"id": name, "kind": kind}
+            else:
+                raise ValueError(f"Unsupported builtin: {name}")
+            return {"id": name, "kind": kind}
+        mapped = hex_for(name)
+        if not mapped:
+            raise RuntimeError(
+                f"Setting '{name}' is not mapped. Capture DUML (HCI snoop or sniff), "
+                "put hex in sidecar/settings_map.json, then replay."
+            )
+        sent = await self.send_raw(mapped)
+        return {"id": name, "kind": "hex", **sent}
+
+    async def apply_profile(self, names: list[str] | None = None) -> dict[str, Any]:
+        mapping = load_settings_map()
+        selected = names if names is not None else mapping["apply_on_connect"]
+        applied: list[str] = []
+        skipped: list[dict[str, str]] = []
+        for name in selected:
+            try:
+                await self.apply_setting(name)
+                applied.append(name)
+            except (RuntimeError, ValueError, BleakError) as exc:
+                skipped.append({"id": name, "error": str(exc)})
+        return {"applied": applied, "skipped": skipped}
+
+    def list_settings(self) -> list[dict[str, Any]]:
+        return list_commands()
 
     def _next_seq(self) -> int:
         seq = self._seq
@@ -435,6 +512,25 @@ def _is_likely_osmo(name: str) -> bool:
         return False
     upper = name.upper()
     return any(upper.startswith(prefix.upper()) for prefix in LIKELY_NAME_PREFIXES)
+
+
+def rewrite_seq(raw: bytes, seq: int) -> bytes:
+    """Rebuild a valid DUML frame with a fresh sequence number for replay."""
+    if not packet_crc_ok(raw):
+        return raw
+    packets = DumlParser().feed(raw)
+    if len(packets) != 1 or packets[0].raw != raw:
+        return raw
+    packet = packets[0]
+    return build_packet(
+        packet.cmd_set,
+        packet.cmd,
+        packet.payload,
+        seq=seq,
+        sender=packet.sender,
+        receiver=packet.receiver,
+        attributes=packet.attributes,
+    )
 
 
 def inspect_to_dict(info: InspectResult) -> dict[str, Any]:
