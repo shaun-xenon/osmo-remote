@@ -106,7 +106,9 @@ export function App() {
     };
   }, [pushLog]);
 
-  useEffect(() => {
+  const refreshCommands = useCallback(() => {
+    // The sidecar re-reads settings_map.json on every request, so re-fetching
+    // here picks up edits made while the app is open.
     request("settings")
       .then((response) => {
         if (response.ok) {
@@ -115,6 +117,10 @@ export function App() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    refreshCommands();
+  }, [refreshCommands]);
 
   useEffect(() => {
     const down = (event) => {
@@ -217,6 +223,7 @@ export function App() {
         pushLog(`Profile skipped: ${profile.skipped.map((row) => row.id).join(", ")}`);
       }
       setConnected(true);
+      refreshCommands();
     } catch (error) {
       pushLog(error.message);
     } finally {
@@ -328,6 +335,7 @@ export function App() {
       if (result.skipped?.length) {
         pushLog(`Skipped: ${result.skipped.map((row) => row.id).join(", ")}`);
       }
+      refreshCommands();
     } catch (error) {
       pushLog(error.message);
     }

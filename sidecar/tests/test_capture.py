@@ -62,3 +62,50 @@ def test_extract_duml_does_not_join_opposite_hci_directions() -> None:
     mid = len(frame) // 2
     packets = extract_duml([(0, frame[:mid]), (1, frame[mid:])])
     assert packets == []
+
+
+def _att_record(value: bytes, opcode: int, handle: int = 0x001A) -> bytes:
+    """One HCI ACL packet carrying a single ATT PDU with `value` as its GATT value."""
+    att = bytes([opcode]) + handle.to_bytes(2, "little") + value
+    payload = len(att).to_bytes(2, "little") + (4).to_bytes(2, "little") + att
+    return (0x000A).to_bytes(2, "little") + len(payload).to_bytes(2, "little") + payload
+
+
+def test_extract_duml_joins_frame_split_across_att_writes() -> None:
+    frame = build_set_mode(1, seq=4)
+    mid = len(frame) // 2
+    packets = extract_duml([_att_record(frame[:mid], 0x52), _att_record(frame[mid:], 0x52)])
+    assert len(packets) == 1
+    assert packets[0].cmd == 0x4C
+    assert packets[0].raw == frame
+
+
+def test_extract_duml_joins_frame_split_across_write_and_notification() -> None:
+    frame = build_speed_rotate(1500, 0, seq=7)
+    mid = len(frame) // 2
+    packets = extract_duml([_att_record(frame[:mid], 0x52), _att_record(frame[mid:], 0x1B)])
+    assert len(packets) == 1
+    assert packets[0].cmd == 0x0C
+
+
+def test_extract_duml_unwraps_att_header_inside_single_record() -> None:
+    frame = build_set_mode(1, seq=4)
+    packets = extract_duml([_att_record(frame, 0x52)])
+    assert len(packets) == 1
+    assert packets[0].raw == frame
+
+
+def test_extract_duml_skips_non_value_att_pdus() -> None:
+    frame = build_set_mode(1, seq=4)
+    packets = extract_duml([_att_record(b"\x00", 0x03), _att_record(frame, 0x52)])
+    assert len(packets) == 1
+
+
+def test_diff_captures_ignores_sequence_and_checksum() -> None:
+    before = build_speed_rotate(100, 0, seq=1)
+    resent = build_speed_rotate(100, 0, seq=42)
+    fresh = build_set_mode(1, seq=43)
+    diff = diff_captures(before.hex(), (resent + fresh).hex())
+    assert diff["added_count"] == 1
+    assert diff["added"][0]["cmd"] == 0x4C
+    assert diff["added"][0]["raw"] == fresh.hex()

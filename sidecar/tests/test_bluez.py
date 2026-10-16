@@ -31,6 +31,17 @@ def test_reclaim_match_is_gimbal_not_dji_accessory() -> None:
     assert is_osmo_device(mic) is True  # scan ranking only
 
 
+def test_reclaim_does_not_fire_on_other_osmo_product_names() -> None:
+    # Destructive reclaim (disconnect + untrust) must not touch other DJI gear
+    # that merely shares the Osmo branding; only the fff0 service UUID may
+    # promote those names to a gimbal match.
+    pocket = BluezDevice("22:33:44:55:66:77", "Osmo Pocket")
+    action = BluezDevice("33:44:55:66:77:88", "DJI Osmo Action 4")
+    assert is_osmo_gimbal(pocket) is False
+    assert is_osmo_gimbal(action) is False
+    assert is_osmo_gimbal(pocket, ["0000fff0-0000-1000-8000-00805f9b34fb"]) is True
+
+
 def test_fff0_uuid_marks_gimbal_even_without_name() -> None:
     unnamed = BluezDevice("12:34:56:78:9A:BC", "")
     assert is_osmo_gimbal(unnamed) is False

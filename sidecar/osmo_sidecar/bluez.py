@@ -45,7 +45,13 @@ def is_osmo_device(device: BluezDevice) -> bool:
 
 
 def is_osmo_gimbal(device: BluezDevice, uuids: list[str] | None = None) -> bool:
-    """True only for the OM7P/gimbal — precise name or fff0 service UUID."""
+    """True only for the OM7P/gimbal — precise name or fff0 service UUID.
+
+    Name-only matching covers the Osmo Mobile gimbal family (OM7P, OM5, …).
+    Other DJI/Osmo names (Osmo Pocket, DJI Osmo Action, DJI Mic…) are only
+    accepted with the gimbal fff0 service UUID, because reclaim disconnects
+    and untrusts and must never fire on a merely similar name.
+    """
     if uuids:
         lowered = [uuid.lower() for uuid in uuids]
         if SERVICE_FFF0 in lowered or any(uuid.endswith("fff0") for uuid in lowered):
@@ -55,9 +61,7 @@ def is_osmo_gimbal(device: BluezDevice, uuids: list[str] | None = None) -> bool:
     upper = device.name.strip().upper()
     if upper.startswith("OM") and len(upper) > 2 and upper[2].isdigit():
         return True
-    if upper.startswith("OSMO"):
-        return True
-    if upper.startswith("DJI OSMO"):
+    if upper.startswith("OSMO MOBILE") or upper.startswith("DJI OSMO MOBILE"):
         return True
     return False
 
